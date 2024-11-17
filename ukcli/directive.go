@@ -33,7 +33,7 @@ func NewRule[Params any](rule func(*Params)) Rule[Params] {
 }
 
 func (r Rule[Params]) UkaseRegister(state State) error {
-	state.RegisterRule(ukinit.NewRule(r))
+	state.AddRule(ukinit.NewRule(r))
 	return nil
 }
 
@@ -48,7 +48,7 @@ func NewInfo(info any) Info {
 }
 
 func (i Info) Bind(target ...string) Directive {
-	dir := func(s State) error { return s.RegisterInfo(i.Value, target...) }
+	dir := func(s State) error { return s.AddInfo(i.Value, target...) }
 	return directiveFunc(dir)
 }
 
@@ -79,7 +79,7 @@ func (e Exec[Params]) register(state State, target []string) error {
 		return e(ctx, newInput(in, state))
 	}
 
-	return state.RegisterExec(exec, spec, target...)
+	return state.AddExec(exec, spec, target...)
 }
 
 // =============================================================================

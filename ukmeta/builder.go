@@ -30,8 +30,8 @@ type autoState[Params any] struct {
 	memo    autoTree
 }
 
-func (as *autoState[Params]) RegisterExec(exec ukcore.Exec, spec ukspec.Parameters, target ...string) error {
-	if err := as.State.RegisterExec(exec, spec, target...); err != nil {
+func (as *autoState[Params]) AddExec(exec ukcore.Exec, spec ukspec.Parameters, target ...string) error {
+	if err := as.State.AddExec(exec, spec, target...); err != nil {
 		return err
 	}
 

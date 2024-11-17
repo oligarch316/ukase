@@ -4,63 +4,71 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/oligarch316/ukase/internal/ierror"
 	"github.com/oligarch316/ukase/ukcore/ukspec"
 )
 
-var (
-	ErrTargetNotExist = errors.New("target does not exist")
-	ErrMissingProgram = errors.New("missing program name")
-)
+var errIsTagged = ierror.IsTaggedFunc(ierror.ErrDec)
 
-type ErrorExecConflict struct {
+// =============================================================================
+// Conflict
+// =============================================================================
+
+var ErrConflict = errors.New("conflict error")
+
+type ExecConflictError struct {
 	Target           []string
 	Original, Update ukspec.Parameters
 	err              error
 }
 
-type ErrorInfoConflict struct {
+type InfoConflictError struct {
 	Target           []string
 	Original, Update any
 	err              error
 }
 
-type ErrorFlagConflict struct {
+type FlagConflictError struct {
 	Target           []string
 	Name             string
 	Original, Update ukspec.Flag
 	err              error
 }
 
-func (eec ErrorExecConflict) Unwrap() error { return eec.err }
-func (eic ErrorInfoConflict) Unwrap() error { return eic.err }
-func (efc ErrorFlagConflict) Unwrap() error { return efc.err }
+func (ExecConflictError) Is(t error) bool { return errIsTagged(t, ErrConflict) }
+func (InfoConflictError) Is(t error) bool { return errIsTagged(t, ErrConflict) }
+func (FlagConflictError) Is(t error) bool { return errIsTagged(t, ErrConflict) }
 
-func (efc ErrorFlagConflict) Error() string {
-	return fmt.Sprintf(
-		"conflicting flag specifications for name '%s': %s",
-		efc.Name, efc.err,
-	)
+func (e ExecConflictError) Unwrap() error { return e.err }
+func (e InfoConflictError) Unwrap() error { return e.err }
+func (e FlagConflictError) Unwrap() error { return e.err }
+
+func (e ExecConflictError) Error() string {
+	return fmt.Sprintf("exec conflict for target '%s': %s", e.Target, e.err)
 }
 
-func (eec ErrorExecConflict) Error() string {
-	return fmt.Sprintf(
-		"conflicting exec specifications for target '%s': %s",
-		eec.Target, eec.err,
-	)
+func (e InfoConflictError) Error() string {
+	return fmt.Sprintf("info conflict for target '%s': %s", e.Target, e.err)
 }
 
-func (eic ErrorInfoConflict) Error() string {
-	return fmt.Sprintf(
-		"conflicting info specifications for target '%s': %s",
-		eic.Target, eic.err,
-	)
+func (e FlagConflictError) Error() string {
+	return fmt.Sprintf("flag (%s) conflict for target '%s': %s", e.Name, e.Target, e.err)
 }
 
-type ErrorParse struct {
+// =============================================================================
+// Parse
+// =============================================================================
+
+var ErrParse = errors.New("parse error")
+
+type ParseError struct {
 	Target   []string
 	Position int
 	err      error
 }
 
-func (ep ErrorParse) Unwrap() error { return ep.err }
-func (ep ErrorParse) Error() string { return ep.err.Error() }
+func (ParseError) Is(t error) bool { return errIsTagged(t, ErrParse) }
+
+func (e ParseError) Unwrap() error { return e.err }
+
+func (e ParseError) Error() string { return e.err.Error() }

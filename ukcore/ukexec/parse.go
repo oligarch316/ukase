@@ -3,6 +3,7 @@ package ukexec
 import (
 	"fmt"
 
+	"github.com/oligarch316/ukase/internal/ierror"
 	"github.com/oligarch316/ukase/ukcore"
 	"github.com/oligarch316/ukase/ukcore/ukspec"
 )
@@ -140,11 +141,11 @@ func (p *parser) ConsumeFlags(specs map[string]ukspec.Flag) ([]ukcore.Flag, erro
 		// ❬Flag❭
 		if peekToken.Kind == kindFlag {
 			flagName := peekToken.Value
-			flagSpec, flagValid := specs[flagName]
+			flagSpec, flagKnown := specs[flagName]
 
-			// Invalid flag name ⇒ do not consume, fail
-			if !flagValid {
-				return flags, fmt.Errorf("invalid flag '%s'", flagName)
+			// Unknown flag name ⇒ do not consume, fail
+			if !flagKnown {
+				return flags, ierror.FmtU("unknown flag '%s'", flagName)
 			}
 
 			// Consume flag name
@@ -161,12 +162,8 @@ func (p *parser) ConsumeFlags(specs map[string]ukspec.Flag) ([]ukcore.Flag, erro
 			continue
 		}
 
-		// TODO:
-		// We've been incorrectly treating this as an internal error.
-		// Malformed flags like '--x' or '-xxx' are still user input errors.
-
-		// Unexpected ⇒ do not consume, fail (internal error)
-		return flags, fmt.Errorf("internal ukase parse error: unexpected token kind %s", peekToken.Kind)
+		// Unexpected ⇒ do not consume, fail
+		return flags, ierror.FmtU("invalid token '%s'", peekVal)
 	}
 
 	// ❬EOF❭
@@ -180,7 +177,7 @@ func (p *parser) consumeFlagValue(name string, spec ukspec.Flag) (string, error)
 	// Required value is not available
 	// ⇒ do not consume, fail
 	if !spec.Elide.Allow && !peekExists {
-		return "", fmt.Errorf("missing value for flag '%s'", name)
+		return "", ierror.FmtU("missing value for flag '%s'", name)
 	}
 
 	// Optional value is either not available or inappropriate

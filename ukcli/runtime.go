@@ -36,7 +36,7 @@ func (r *Runtime) Execute(ctx context.Context, values []string) error {
 		return err
 	}
 
-	return state.execMux.Execute(ctx, values)
+	return state.execTree.Execute(ctx, values)
 }
 
 func (r *Runtime) prepare(state State) error {
@@ -61,33 +61,33 @@ var _ State = (*state)(nil)
 
 type State interface {
 	// Execution time utilities
-	loadMeta(target []string) (ukexec.Meta, error)
+	loadEntry(target []string) (ukexec.Entry, bool)
 	loadSpec(t reflect.Type) (ukspec.Parameters, error)
 	runDecode(ukcore.Input, any) error
 	runInit(any) error
 
 	// Registration time utilities
-	RegisterExec(exec ukcore.Exec, spec ukspec.Parameters, target ...string) error
-	RegisterInfo(info any, target ...string) error
-	RegisterRule(rule ukinit.Rule)
+	AddExec(exec ukcore.Exec, spec ukspec.Parameters, target ...string) error
+	AddInfo(info any, target ...string) error
+	AddRule(rule ukinit.Rule)
 }
 
 type state struct {
-	config  Config
-	execMux *ukexec.Mux
-	ruleSet *ukinit.RuleSet
+	config   Config
+	execTree *ukexec.Tree
+	ruleSet  *ukinit.RuleSet
 }
 
 func newState(config Config) *state {
 	return &state{
-		config:  config,
-		execMux: ukexec.New(config.Exec...),
-		ruleSet: ukinit.NewRuleSet(config.Init...),
+		config:   config,
+		execTree: ukexec.NewTree(config.Exec...),
+		ruleSet:  ukinit.NewRuleSet(config.Init...),
 	}
 }
 
-func (s *state) loadMeta(target []string) (ukexec.Meta, error) {
-	return s.execMux.Meta(target...)
+func (s *state) loadEntry(target []string) (ukexec.Entry, bool) {
+	return s.execTree.LoadEntry(target...)
 }
 
 func (s *state) loadSpec(t reflect.Type) (ukspec.Parameters, error) {
@@ -108,15 +108,15 @@ func (s *state) runInit(v any) error {
 	return s.ruleSet.Process(spec, v)
 }
 
-func (s *state) RegisterExec(exec ukcore.Exec, spec ukspec.Parameters, target ...string) error {
-	return s.execMux.RegisterExec(exec, spec, target...)
+func (s *state) AddExec(exec ukcore.Exec, spec ukspec.Parameters, target ...string) error {
+	return s.execTree.AddExec(exec, spec, target...)
 }
 
-func (s *state) RegisterInfo(info any, target ...string) error {
-	return s.execMux.RegisterInfo(info, target...)
+func (s *state) AddInfo(info any, target ...string) error {
+	return s.execTree.AddInfo(info, target...)
 }
 
-func (s *state) RegisterRule(rule ukinit.Rule) {
+func (s *state) AddRule(rule ukinit.Rule) {
 	rule.Register(s.ruleSet)
 }
 
@@ -130,7 +130,7 @@ type Input interface {
 	Core() ukcore.Input
 	Decode(any) error
 	Initialize(any) error
-	Lookup(target ...string) (ukexec.Meta, error)
+	Lookup(target ...string) (ukexec.Entry, bool)
 }
 
 type input struct {
@@ -145,4 +145,4 @@ func newInput(core ukcore.Input, state State) input {
 func (i input) Core() ukcore.Input                      { return i.core }
 func (i input) Decode(v any) error                      { return i.state.runDecode(i.core, v) }
 func (i input) Initialize(v any) error                  { return i.state.runInit(v) }
-func (i input) Lookup(t ...string) (ukexec.Meta, error) { return i.state.loadMeta(t) }
+func (i input) Lookup(t ...string) (ukexec.Entry, bool) { return i.state.loadEntry(t) }

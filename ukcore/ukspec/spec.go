@@ -19,6 +19,7 @@ type Parameters struct {
 	Flags     []Flag
 	Inlines   []Inline
 
+	// TODO: Just export this and remove `(...) LookupFlag` ???
 	flagNames map[string]Flag
 }
 
@@ -68,6 +69,7 @@ func NewParameters(t reflect.Type, opts ...Option) (Parameters, error) {
 // Parameters› Lookup
 // =============================================================================
 
+// TODO: Rename to `Argument(...)` once `LookupFlag` is removed ???
 func (p Parameters) LookupArgument(position int) (Argument, bool) {
 	match := func(a Argument) bool {
 		lOk := a.Position.Low == nil || position >= int(*a.Position.Low)
