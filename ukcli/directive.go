@@ -56,7 +56,7 @@ func (i Info) Bind(target ...string) Directive {
 // Exec
 // =============================================================================
 
-type Exec[Params any] func(context.Context, Input) error
+type Exec[Params any] func(Context, ukcore.Input) error
 
 func (e Exec[Params]) Bind(target ...string) Directive {
 	if e == nil {
@@ -70,13 +70,14 @@ func (e Exec[Params]) Bind(target ...string) Directive {
 func (e Exec[Params]) register(state State, target []string) error {
 	t := reflect.TypeFor[Params]()
 
-	spec, err := state.loadSpec(t)
+	spec, err := state.LoadSpec(t)
 	if err != nil {
 		return err
 	}
 
-	exec := func(ctx context.Context, in ukcore.Input) error {
-		return e(ctx, newInput(in, state))
+	exec := func(ctx context.Context, input ukcore.Input) error {
+		inputCtx := newInputContext(ctx, state)
+		return e(inputCtx, input)
 	}
 
 	return state.AddExec(exec, spec, target...)
@@ -101,14 +102,14 @@ func (h Handler[Params]) Bind(target ...string) Directive {
 	return exec.Bind(target...)
 }
 
-func (h Handler[Params]) exec(ctx context.Context, in Input) error {
+func (h Handler[Params]) exec(ctx Context, input ukcore.Input) error {
 	var params Params
 
-	if err := in.Initialize(&params); err != nil {
+	if err := ctx.Initialize(&params); err != nil {
 		return err
 	}
 
-	if err := in.Decode(&params); err != nil {
+	if err := ctx.Decode(input, &params); err != nil {
 		return err
 	}
 

@@ -60,16 +60,21 @@ func (r *Runtime) prepare(state State) error {
 var _ State = (*state)(nil)
 
 type State interface {
-	// Execution time utilities
-	loadEntry(target []string) (ukexec.Entry, bool)
-	loadSpec(t reflect.Type) (ukspec.Parameters, error)
-	runDecode(ukcore.Input, any) error
-	runInit(any) error
-
-	// Registration time utilities
+	// TODO: Document
 	AddExec(exec ukcore.Exec, spec ukspec.Parameters, target ...string) error
+
+	// TODO: Document
 	AddInfo(info any, target ...string) error
+
+	// TODO: Document
 	AddRule(rule ukinit.Rule)
+
+	// TODO: Document
+	LoadSpec(t reflect.Type, opts ...ukspec.Option) (ukspec.Parameters, error)
+
+	loadEntry(target []string) (ukexec.Entry, bool)
+	runDecode(ukcore.Input, any, ...ukdec.Option) error
+	runInit(any, ...ukspec.Option) error
 }
 
 type state struct {
@@ -86,28 +91,6 @@ func newState(config Config) *state {
 	}
 }
 
-func (s *state) loadEntry(target []string) (ukexec.Entry, bool) {
-	return s.execTree.LoadEntry(target...)
-}
-
-func (s *state) loadSpec(t reflect.Type) (ukspec.Parameters, error) {
-	return ukspec.NewParameters(t, s.config.Spec...)
-}
-
-func (s *state) runDecode(i ukcore.Input, v any) error {
-	decoder := ukdec.NewDecoder(i, s.config.Decode...)
-	return decoder.Decode(v)
-}
-
-func (s *state) runInit(v any) error {
-	spec, err := ukspec.ParametersOf(v, s.config.Spec...)
-	if err != nil {
-		return err
-	}
-
-	return s.ruleSet.Process(spec, v)
-}
-
 func (s *state) AddExec(exec ukcore.Exec, spec ukspec.Parameters, target ...string) error {
 	return s.execTree.AddExec(exec, spec, target...)
 }
@@ -120,29 +103,66 @@ func (s *state) AddRule(rule ukinit.Rule) {
 	rule.Register(s.ruleSet)
 }
 
-// =============================================================================
-// Input
-// =============================================================================
-
-var _ Input = input{}
-
-type Input interface {
-	Core() ukcore.Input
-	Decode(any) error
-	Initialize(any) error
-	Lookup(target ...string) (ukexec.Entry, bool)
+func (s *state) LoadSpec(t reflect.Type, opts ...ukspec.Option) (ukspec.Parameters, error) {
+	opts = append(s.config.Spec, opts...)
+	return ukspec.NewParameters(t, opts...)
 }
 
-type input struct {
-	core  ukcore.Input
+func (s *state) loadEntry(target []string) (ukexec.Entry, bool) {
+	return s.execTree.LoadEntry(target...)
+}
+
+func (s *state) runDecode(input ukcore.Input, v any, opts ...ukdec.Option) error {
+	opts = append(s.config.Decode, opts...)
+	return ukdec.Decode(input, v, opts...)
+}
+
+func (s *state) runInit(v any, opts ...ukspec.Option) error {
+	opts = append(s.config.Spec, opts...)
+	spec, err := ukspec.ParametersOf(v, opts...)
+	if err != nil {
+		return err
+	}
+
+	return s.ruleSet.Process(spec, v)
+}
+
+// =============================================================================
+// Context
+// =============================================================================
+
+var _ Context = inputContext{}
+
+type Context interface {
+	context.Context
+
+	LoadEntry(target ...string) (ukexec.Entry, bool)
+	LoadSpec(t reflect.Type, opts ...ukspec.Option) (ukspec.Parameters, error)
+	Decode(input ukcore.Input, v any, opts ...ukdec.Option) error
+	Initialize(v any, opts ...ukspec.Option) error
+}
+
+type inputContext struct {
+	context.Context
 	state State
 }
 
-func newInput(core ukcore.Input, state State) input {
-	return input{core: core, state: state}
+func newInputContext(ctx context.Context, state State) inputContext {
+	return inputContext{Context: ctx, state: state}
 }
 
-func (i input) Core() ukcore.Input                      { return i.core }
-func (i input) Decode(v any) error                      { return i.state.runDecode(i.core, v) }
-func (i input) Initialize(v any) error                  { return i.state.runInit(v) }
-func (i input) Lookup(t ...string) (ukexec.Entry, bool) { return i.state.loadEntry(t) }
+func (ic inputContext) LoadEntry(target ...string) (ukexec.Entry, bool) {
+	return ic.state.loadEntry(target)
+}
+
+func (ic inputContext) LoadSpec(t reflect.Type, opts ...ukspec.Option) (ukspec.Parameters, error) {
+	return ic.state.LoadSpec(t, opts...)
+}
+
+func (ic inputContext) Decode(input ukcore.Input, v any, opts ...ukdec.Option) error {
+	return ic.state.runDecode(input, v, opts...)
+}
+
+func (ic inputContext) Initialize(v any, opts ...ukspec.Option) error {
+	return ic.state.runInit(v, opts...)
+}
