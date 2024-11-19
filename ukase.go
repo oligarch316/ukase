@@ -2,7 +2,6 @@ package ukase
 
 import (
 	"context"
-	"errors"
 	"log/slog"
 	"os"
 
@@ -68,7 +67,7 @@ type Application struct {
 	runtime *ukcli.Runtime
 }
 
-func NewApplication(opts ...Option) *Application {
+func New(opts ...Option) *Application {
 	config := newConfig(opts)
 	runtime := ukcli.NewRuntime(config)
 
@@ -87,41 +86,21 @@ func (a *Application) Run(ctx context.Context) error {
 }
 
 // =============================================================================
-// Directive› Command
+// Directives
 // =============================================================================
 
-var NoHandler ukcli.Handler[struct{}] = nil
-var NoInfo any = nil
-
-type Command[Params any] struct {
-	Handler ukcli.Handler[Params]
-	Info    ukcli.Info
+func Command[Params any](handler func(context.Context, Params) error, info any) ukcli.Command[Params] {
+	return ukcli.NewCommand(handler, info)
 }
 
-func NewCommand[Params any](handler func(context.Context, Params) error, info any) Command[Params] {
-	return Command[Params]{
-		Handler: ukcli.NewHandler(handler),
-		Info:    ukcli.NewInfo(info),
-	}
+func Exec[Params any](handler func(context.Context, Params) error) ukcli.Exec[Params] {
+	return ukcli.NewExec(handler)
 }
 
-func NewRoot[Params any](handler func(context.Context, Params) error, info any) ukcli.Directive {
-	command := NewCommand(handler, info)
-	return command.Bind()
+func Info(info any) ukcli.Info {
+	return ukcli.NewInfo(info)
 }
 
-func (c Command[Params]) Bind(target ...string) ukcli.Directive {
-	return ukcli.NewDirective(func(s ukcli.State) error {
-		errHandler := c.Handler.Bind(target...).UkaseRegister(s)
-		errInfo := c.Info.Bind(target...).UkaseRegister(s)
-		return errors.Join(errHandler, errInfo)
-	})
-}
-
-// =============================================================================
-// Directive› Rule
-// =============================================================================
-
-func NewRule[Params any](rule func(*Params)) ukcli.Rule[Params] {
+func Rule[Params any](rule func(*Params)) ukcli.Rule[Params] {
 	return ukcli.NewRule(rule)
 }

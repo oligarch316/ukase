@@ -136,9 +136,16 @@ var _ Context = inputContext{}
 type Context interface {
 	context.Context
 
+	// TODO: Document
 	LoadEntry(target ...string) (ukexec.Entry, bool)
+
+	// TODO: Document
 	LoadSpec(t reflect.Type, opts ...ukspec.Option) (ukspec.Parameters, error)
+
+	// TODO: Document
 	Decode(input ukcore.Input, v any, opts ...ukdec.Option) error
+
+	// TODO: Document
 	Initialize(v any, opts ...ukspec.Option) error
 }
 

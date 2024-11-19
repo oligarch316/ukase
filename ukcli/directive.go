@@ -2,25 +2,29 @@ package ukcli
 
 import (
 	"context"
+	"errors"
 	"reflect"
 
 	"github.com/oligarch316/ukase/ukcore"
 	"github.com/oligarch316/ukase/ukcore/ukinit"
 )
 
-var directiveNoop directiveFunc = func(State) error { return nil }
-
 // =============================================================================
 // Directive
 // =============================================================================
 
+var directiveNoop directiveFunc = func(State) error { return nil }
+
 type Directive interface{ UkaseRegister(State) error }
 
-type directiveFunc func(State) error
-
 func NewDirective(directive func(State) error) Directive { return directiveFunc(directive) }
+func ErrDirective(err error) Directive                   { return directiveErr{err} }
+
+type directiveFunc func(State) error
+type directiveErr struct{ error }
 
 func (df directiveFunc) UkaseRegister(state State) error { return df(state) }
+func (de directiveErr) UkaseRegister(State) error        { return de.error }
 
 // =============================================================================
 // Rule
@@ -33,7 +37,10 @@ func NewRule[Params any](rule func(*Params)) Rule[Params] {
 }
 
 func (r Rule[Params]) UkaseRegister(state State) error {
-	state.AddRule(ukinit.NewRule(r))
+	if r != nil {
+		state.AddRule(ukinit.NewRule(r))
+	}
+
 	return nil
 }
 
@@ -48,7 +55,11 @@ func NewInfo(info any) Info {
 }
 
 func (i Info) Bind(target ...string) Directive {
-	dir := func(s State) error { return s.AddInfo(i.Value, target...) }
+	if i.Value == nil {
+		return directiveNoop
+	}
+
+	dir := func(state State) error { return state.AddInfo(i.Value, target...) }
 	return directiveFunc(dir)
 }
 
@@ -58,12 +69,32 @@ func (i Info) Bind(target ...string) Directive {
 
 type Exec[Params any] func(Context, ukcore.Input) error
 
+func NewExec[Params any](handler func(context.Context, Params) error) Exec[Params] {
+	if handler == nil {
+		return nil
+	}
+
+	return func(ctx Context, input ukcore.Input) error {
+		var params Params
+
+		if err := ctx.Initialize(&params); err != nil {
+			return err
+		}
+
+		if err := ctx.Decode(input, &params); err != nil {
+			return err
+		}
+
+		return handler(ctx, params)
+	}
+}
+
 func (e Exec[Params]) Bind(target ...string) Directive {
 	if e == nil {
 		return directiveNoop
 	}
 
-	dir := func(s State) error { return e.register(s, target) }
+	dir := func(state State) error { return e.register(state, target) }
 	return directiveFunc(dir)
 }
 
@@ -84,34 +115,28 @@ func (e Exec[Params]) register(state State, target []string) error {
 }
 
 // =============================================================================
-// Handler
+// Command
 // =============================================================================
 
-type Handler[Params any] func(context.Context, Params) error
-
-func NewHandler[Params any](handler func(context.Context, Params) error) Handler[Params] {
-	return Handler[Params](handler)
+type Command[Params any] struct {
+	Exec Exec[Params]
+	Info Info
 }
 
-func (h Handler[Params]) Bind(target ...string) Directive {
-	if h == nil {
-		return directiveNoop
+func NewCommand[Params any](handler func(context.Context, Params) error, info any) Command[Params] {
+	return Command[Params]{
+		Exec: NewExec(handler),
+		Info: NewInfo(info),
 	}
-
-	exec := Exec[Params](h.exec)
-	return exec.Bind(target...)
 }
 
-func (h Handler[Params]) exec(ctx Context, input ukcore.Input) error {
-	var params Params
+func (c Command[Params]) Bind(target ...string) Directive {
+	dir := func(state State) error { return c.register(state, target) }
+	return NewDirective(dir)
+}
 
-	if err := ctx.Initialize(&params); err != nil {
-		return err
-	}
-
-	if err := ctx.Decode(input, &params); err != nil {
-		return err
-	}
-
-	return h(ctx, params)
+func (c Command[Params]) register(state State, target []string) error {
+	errExec := c.Exec.Bind(target...).UkaseRegister(state)
+	errInfo := c.Exec.Bind(target...).UkaseRegister(state)
+	return errors.Join(errExec, errInfo)
 }
