@@ -137,6 +137,6 @@ func (c Command[Params]) Bind(target ...string) Directive {
 
 func (c Command[Params]) register(state State, target []string) error {
 	errExec := c.Exec.Bind(target...).UkaseRegister(state)
-	errInfo := c.Exec.Bind(target...).UkaseRegister(state)
+	errInfo := c.Info.Bind(target...).UkaseRegister(state)
 	return errors.Join(errExec, errInfo)
 }

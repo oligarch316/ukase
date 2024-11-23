@@ -47,7 +47,7 @@ func (e *entry) Child(target ...string) (Entry, bool) {
 	child, ok := e, true
 
 	for _, name := range target {
-		if child, ok = e.children[name]; !ok {
+		if child, ok = child.children[name]; !ok {
 			break
 		}
 	}
