@@ -1,0 +1,73 @@
+{{- /*********************************************************************** -}}
+    DEFINE
+{{- ***********************************************************************/ -}}
+
+{{- /* COMMAND */ -}}
+{{- define "sectionCommand" -}}
+
+{{ ( infoCommand .Command ).Long }}
+
+{{- end -}}
+
+{{- /* USAGE */ -}}
+{{- define "sectionUsage" -}}
+{{- $label := labelCommand .Command -}}
+
+Usage:
+{{- if hasCommand . }}
+  {{ $label }}
+  {{- if hasFlags .     }} [flag...]     {{- end -}}
+  {{- if hasArguments . }} [argument...] {{- end -}}
+{{- end -}}
+
+{{- if hasSubcommands . }}
+  {{ $label }} [command]
+{{- end -}}
+
+{{- end -}}
+
+{{- /* SUBCOMMANDS */ -}}
+{{- define "sectionSubcommands" -}}
+{{- $width := measureSubcommands . -}}
+
+Commands:
+{{- range .Subcommands }}
+  {{ printf "%-*s  %s" $width ( labelSubcommand . ) ( infoSubcommand . ).Short }}
+{{- end -}}
+
+{{- end -}}
+
+{{- /* ARGUMENTS */ -}}
+{{- define "sectionArguments" -}}
+{{- $width := measureArguments . -}}
+
+Arguments:
+{{- range .Arguments }}
+  {{ printf "%-*s  %s" $width ( labelArgument . ) ( infoArgument . ).Short }}
+{{- end -}}
+
+{{- end -}}
+
+{{- /* FLAGS */ -}}
+{{- define "sectionFlags" -}}
+{{- $width := measureFlags . -}}
+
+Flags:
+{{- range .Flags }}
+  {{ printf "%-*s  %s" $width ( labelFlag . ) ( infoFlag . ).Short }}
+{{- end -}}
+
+{{- end -}}
+
+{{- /*********************************************************************** -}}
+    DISPLAY
+{{- ***********************************************************************/ -}}
+
+{{- $hasUsage := or ( hasCommand . ) ( hasSubcommands . ) -}}
+
+{{- template "sectionCommand" . -}} {{- "\n" -}}
+
+{{- if $hasUsage        -}} {{- "\n" -}} {{- template "sectionUsage" .       -}} {{- "\n" -}} {{- end -}}
+{{- if hasSubcommands . -}} {{- "\n" -}} {{- template "sectionSubcommands" . -}} {{- "\n" -}} {{- end -}}
+{{- if hasArguments .   -}} {{- "\n" -}} {{- template "sectionArguments" .   -}} {{- "\n" -}} {{- end -}}
+{{- if hasFlags .       -}} {{- "\n" -}} {{- template "sectionFlags" .       -}} {{- "\n" -}} {{- end -}}

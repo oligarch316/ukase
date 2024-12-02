@@ -16,6 +16,5 @@ func (o App) UkaseApplyApp(c *ukase.Config) { o(c) }
 // Specific
 // =============================================================================
 
-func AppHelpCommand(name string) App      { return func(c *ukase.Config) { c.HelpCommand = name } }
 func AppInputProgram(name string) App     { return func(c *ukase.Config) { c.InputProgram = name } }
 func AppInputArguments(args []string) App { return func(c *ukase.Config) { c.InputArguments = args } }

@@ -2,10 +2,7 @@
 
 package ukase
 
-import (
-	"github.com/oligarch316/ukase/ukcli"
-	"github.com/oligarch316/ukase/ukmeta/ukhelp"
-)
+import "github.com/oligarch316/ukase/ukcli"
 
 type appConfig struct{ Config }
 
@@ -15,10 +12,7 @@ func (ac appConfig) UkaseApplyCLI(c *ukcli.Config) {
 }
 
 func (ac appConfig) cliApplyHelpAuto(c *ukcli.Config) {
-	helpBuilder := ukhelp.NewBuilder(ac.Help...)
-	helpAuto := helpBuilder.Auto(ac.HelpCommand)
-
-	c.Middleware = append(c.Middleware, helpAuto)
+	// TODO
 }
 
 func (ac appConfig) cliApplyUser(c *ukcli.Config) {

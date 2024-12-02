@@ -7,8 +7,6 @@ import (
 
 	"github.com/oligarch316/ukase/internal/ilog"
 	"github.com/oligarch316/ukase/ukcli"
-	"github.com/oligarch316/ukase/ukmeta/ukgen"
-	"github.com/oligarch316/ukase/ukmeta/ukhelp"
 )
 
 // =============================================================================
@@ -17,12 +15,9 @@ import (
 
 var cfgDefault = Config{
 	Log:            ilog.Discard,
-	HelpCommand:    "help",
 	InputProgram:   os.Args[0],
 	InputArguments: os.Args[1:],
 	CLI:            nil,
-	Help:           nil,
-	Gen:            nil,
 }
 
 type Option interface{ UkaseApplyApp(*Config) }
@@ -32,9 +27,6 @@ type Config struct {
 	Log *slog.Logger
 
 	// TODO: Document
-	HelpCommand string
-
-	// TODO: Document
 	InputProgram string
 
 	// TODO: Document
@@ -42,12 +34,6 @@ type Config struct {
 
 	// TODO: Document
 	CLI []ukcli.Option
-
-	// TODO: Document
-	Help []ukhelp.Option
-
-	// TODO: Document
-	Gen []ukgen.Option
 }
 
 func newConfig(opts []Option) appConfig {
