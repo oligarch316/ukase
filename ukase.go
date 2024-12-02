@@ -5,8 +5,29 @@ import (
 	"log/slog"
 	"os"
 
+	"github.com/oligarch316/ukase/internal/ierror"
 	"github.com/oligarch316/ukase/internal/ilog"
 	"github.com/oligarch316/ukase/ukcli"
+)
+
+// =============================================================================
+// Errors
+// =============================================================================
+
+var (
+	// TODO: Document
+	Err = ierror.ErrAny
+
+	// TODO: Document
+	ErrInternal  = ierror.ErrInternal
+	ErrDeveloper = ierror.ErrDeveloper
+	ErrUser      = ierror.ErrUser
+
+	// TODO: Document
+	ErrDec  = ierror.ErrDec
+	ErrExec = ierror.ErrExec
+	ErrInit = ierror.ErrInit
+	ErrSpec = ierror.ErrSpec
 )
 
 // =============================================================================
