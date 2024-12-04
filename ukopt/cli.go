@@ -23,6 +23,6 @@ func (o CLI) UkaseApplyApp(c *ukase.Config) { c.CLI = append(c.CLI, o) }
 // Specific
 // =============================================================================
 
-func CLIMiddleware(middleware func(ukcli.State) ukcli.State) CLI {
-	return func(c *ukcli.Config) { c.Middleware = append(c.Middleware, middleware) }
+func CLIProxy(proxy ukcli.Proxy) CLI {
+	return func(c *ukcli.Config) { c.Proxies = append(c.Proxies, proxy) }
 }

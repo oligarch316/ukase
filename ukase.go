@@ -108,6 +108,6 @@ func Info(info any) ukcli.Info {
 	return ukcli.NewInfo(info)
 }
 
-func Rule[Params any](rule func(*Params)) ukcli.Rule[Params] {
+func Rule[Params any](rule func(*Params)) ukcli.Directive {
 	return ukcli.NewRule(rule)
 }

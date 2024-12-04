@@ -21,6 +21,9 @@ type Config struct {
 	Log *slog.Logger
 
 	// TODO: Document
+	Proxies []Proxy
+
+	// TODO: Document
 	Exec []ukexec.Option
 
 	// TODO: Document
@@ -31,9 +34,6 @@ type Config struct {
 
 	// TODO: Document
 	Spec []ukspec.Option
-
-	// TODO: Document
-	Middleware []func(State) State
 }
 
 func newConfig(opts []Option) Config {
@@ -49,10 +49,10 @@ func newConfig(opts []Option) Config {
 // =============================================================================
 
 var cfgDefault = Config{
-	Log:        ilog.Discard,
-	Exec:       nil,
-	Decode:     nil,
-	Init:       nil,
-	Spec:       nil,
-	Middleware: nil,
+	Log:     ilog.Discard,
+	Proxies: nil,
+	Exec:    nil,
+	Decode:  nil,
+	Init:    nil,
+	Spec:    nil,
 }

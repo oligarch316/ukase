@@ -12,6 +12,26 @@ import (
 )
 
 // =============================================================================
+// Directive
+// =============================================================================
+
+type Directive interface{ UkaseDirective(State) error }
+
+type DirectiveFunc func(State) error
+
+func (f DirectiveFunc) UkaseDirective(s State) error { return f(s) }
+
+// =============================================================================
+// Proxy
+// =============================================================================
+
+type Proxy interface{ UkaseProxy(State) State }
+
+type ProxyFunc func(State) State
+
+func (f ProxyFunc) UkaseProxy(s State) State { return f(s) }
+
+// =============================================================================
 // Runtime
 // =============================================================================
 
@@ -40,12 +60,12 @@ func (r *Runtime) Execute(ctx context.Context, values []string) error {
 }
 
 func (r *Runtime) prepare(state State) error {
-	for _, middleware := range r.config.Middleware {
-		state = middleware(state)
+	for _, proxy := range r.config.Proxies {
+		state = proxy.UkaseProxy(state)
 	}
 
-	for _, dir := range r.directives {
-		if err := dir.UkaseRegister(state); err != nil {
+	for _, directive := range r.directives {
+		if err := directive.UkaseDirective(state); err != nil {
 			return err
 		}
 	}
@@ -61,13 +81,13 @@ var _ State = (*state)(nil)
 
 type State interface {
 	// TODO: Document
-	AddExec(exec ukcore.Exec, spec ukspec.Parameters, target ...string) error
+	AddExec(exec ukcore.Exec, spec ukspec.Parameters, target []string) error
 
 	// TODO: Document
-	AddInfo(info any, target ...string) error
+	AddInfo(info any, target []string) error
 
 	// TODO: Document
-	AddRule(rule ukinit.Rule)
+	AddRule(rule ukinit.Rule) error
 
 	// TODO: Document
 	LoadSpec(t reflect.Type, opts ...ukspec.Option) (ukspec.Parameters, error)
@@ -91,16 +111,17 @@ func newState(config Config) *state {
 	}
 }
 
-func (s *state) AddExec(exec ukcore.Exec, spec ukspec.Parameters, target ...string) error {
+func (s *state) AddExec(exec ukcore.Exec, spec ukspec.Parameters, target []string) error {
 	return s.execTree.AddExec(exec, spec, target...)
 }
 
-func (s *state) AddInfo(info any, target ...string) error {
+func (s *state) AddInfo(info any, target []string) error {
 	return s.execTree.AddInfo(info, target...)
 }
 
-func (s *state) AddRule(rule ukinit.Rule) {
+func (s *state) AddRule(rule ukinit.Rule) error {
 	rule.Register(s.ruleSet)
+	return nil
 }
 
 func (s *state) LoadSpec(t reflect.Type, opts ...ukspec.Option) (ukspec.Parameters, error) {
@@ -125,51 +146,4 @@ func (s *state) runInit(v any, opts ...ukspec.Option) error {
 	}
 
 	return s.ruleSet.Process(spec, v)
-}
-
-// =============================================================================
-// Context
-// =============================================================================
-
-var _ Context = inputContext{}
-
-type Context interface {
-	context.Context
-
-	// TODO: Document
-	LoadEntry(target ...string) (ukexec.Entry, bool)
-
-	// TODO: Document
-	LoadSpec(t reflect.Type, opts ...ukspec.Option) (ukspec.Parameters, error)
-
-	// TODO: Document
-	Decode(input ukcore.Input, v any, opts ...ukdec.Option) error
-
-	// TODO: Document
-	Initialize(v any, opts ...ukspec.Option) error
-}
-
-type inputContext struct {
-	context.Context
-	state State
-}
-
-func newInputContext(ctx context.Context, state State) inputContext {
-	return inputContext{Context: ctx, state: state}
-}
-
-func (ic inputContext) LoadEntry(target ...string) (ukexec.Entry, bool) {
-	return ic.state.loadEntry(target)
-}
-
-func (ic inputContext) LoadSpec(t reflect.Type, opts ...ukspec.Option) (ukspec.Parameters, error) {
-	return ic.state.LoadSpec(t, opts...)
-}
-
-func (ic inputContext) Decode(input ukcore.Input, v any, opts ...ukdec.Option) error {
-	return ic.state.runDecode(input, v, opts...)
-}
-
-func (ic inputContext) Initialize(v any, opts ...ukspec.Option) error {
-	return ic.state.runInit(v, opts...)
 }
