@@ -103,7 +103,7 @@ func (hs hookState) AddRule(rule ukinit.Rule) error {
 // Record
 // =============================================================================
 
-type Record[E Event] []Event
+type Record[E Event] []E
 
 func (r *Record[E]) UkaseProxy(state ukcli.State) ukcli.State {
 	hook := func(e E) error { r.add(e); return nil }
