@@ -28,14 +28,25 @@ type state struct {
 }
 
 func newState(config Config, t reflect.Type) *state {
-	seed := scope{Inline: Inline{FieldType: t, FieldName: "<Root>"}}
+	seedData := Inline{Field: Field{FieldType: t, FieldName: "<Root>"}}
+	seedScope := scope{Inline: seedData}
 
 	return &state{
 		Config:     config,
 		flagMap:    make(map[string]Flag),
-		scopeQueue: []scope{seed},
+		scopeQueue: []scope{seedScope},
 	}
 }
+
+// func newState(config Config, t reflect.Type) *state {
+// 	seed := scope{Inline: Inline{FieldType: t, FieldName: "<Root>"}}
+
+// 	return &state{
+// 		Config:     config,
+// 		flagMap:    make(map[string]Flag),
+// 		scopeQueue: []scope{seed},
+// 	}
+// }
 
 func (s *state) Shift() bool {
 	if len(s.scopeQueue) == 0 {

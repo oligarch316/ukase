@@ -14,9 +14,11 @@ import (
 // =============================================================================
 
 type Flag struct {
-	FieldType  reflect.Type
-	FieldName  string
-	FieldIndex []int
+	// FieldType  reflect.Type
+	// FieldName  string
+	// FieldIndex []int
+
+	Field
 
 	Elide FlagElide
 	Names FlagNames
@@ -25,19 +27,26 @@ type Flag struct {
 func (f Flag) String() string { return fmt.Sprintf("%s (%s)", f.FieldName, f.Names) }
 
 func loadFlag(s *state, sField reflect.StructField, tag []byte, index int) error {
-	s.Config.Log.Debug("loading flag field", "type", sField.Type, "name", sField.Name)
+	// s.Config.Log.Debug("loading flag field", "type", sField.Type, "name", sField.Name)
 
-	if !sField.IsExported() {
-		err := ierror.NewD("not exported")
-		return InvalidFieldError{Trail: s.Scope.Trail, Field: sField, err: err}
+	// if !sField.IsExported() {
+	// 	err := ierror.NewD("not exported")
+	// 	return InvalidFieldError{Trail: s.Scope.Trail, Field: sField, err: err}
+	// }
+
+	// flag := Flag{
+	// 	FieldType:  sField.Type,
+	// 	FieldName:  sField.Name,
+	// 	FieldIndex: append(s.Scope.FieldIndex, index),
+	// 	Elide:      newFlagElide(s.Config, sField),
+	// }
+
+	field, err := newField(s, sField, index)
+	if err != nil {
+		return err
 	}
 
-	flag := Flag{
-		FieldType:  sField.Type,
-		FieldName:  sField.Name,
-		FieldIndex: append(s.Scope.FieldIndex, index),
-		Elide:      newFlagElide(s.Config, sField),
-	}
+	flag := Flag{Field: field, Elide: newFlagElide(s.Config, sField)}
 
 	if err := flag.Names.UnmarshalText(tag); err != nil {
 		return InvalidFieldError{Trail: s.Scope.Trail, Field: sField, err: err}

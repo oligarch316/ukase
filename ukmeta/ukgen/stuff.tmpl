@@ -1,0 +1,45 @@
+{{- /*********************************************************************** -}}
+    DEFINE
+{{- ***********************************************************************/ -}}
+
+{{- /* PACKAGE CLAUSE */ -}}
+{{- define "sectionPackage" -}}
+// Package {{ . }} TODO description.
+package {{ . }}
+{{- end -}}
+
+{{- /* IMPORT DECLARATIONS */ -}}
+{{- define "sectionImports" -}}
+import (
+{{- range $path, $name := . }}
+    {{ printf "%s %q" $name $path }}
+{{- end }}
+)
+{{- end -}}
+
+{{- /* PARAMETER TYPE DECLARATIONS */ -}}
+{{- define "typeField" -}}
+{{ printf "%s %s" .Name ( renderType .Type ) }}
+{{- end -}}
+
+{{- define "typeParameters" -}}
+type {{ .Type.Name }} struct {
+{{- range .Fields }}
+    {{ template "typeField" . }}
+{{- end }}
+}
+{{- end -}}
+
+{{- define "sectionParameters" -}}
+{{- range . }}
+{{ template "typeParameters" . }} {{- "\n" -}}
+{{- end }}
+{{- end -}}
+
+{{- /*********************************************************************** -}}
+    DISPLAY
+{{- ***********************************************************************/ -}}
+
+{{- template "sectionPackage" .PackageName }} {{- "\n" -}}
+{{- if .ImportMap      -}} {{- "\n" -}} {{- template "sectionImports" .ImportMap         -}} {{- "\n" -}} {{- end -}}
+{{- if .ParametersList -}} {{- "\n" -}} {{- template "sectionParameters" .ParametersList -}} {{- "\n" -}} {{- end -}}

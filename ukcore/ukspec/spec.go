@@ -126,3 +126,30 @@ func loadField(s *state, index int) error {
 	// Untagged ⇒ ignore
 	return nil
 }
+
+// =============================================================================
+//
+// =============================================================================
+
+type Field struct {
+	FieldType  reflect.Type // TODO: Rename `FieldType` -> `Type`
+	FieldName  string       // TODO: Rename `FieldName` -> `Name`
+	FieldIndex []int        // TODO: Rename `FieldIndex` -> `Index`
+}
+
+func newField(s *state, sField reflect.StructField, index int) (Field, error) {
+	s.Config.Log.Debug("loading field", "type", sField.Type, "name", sField.Name)
+
+	field := Field{
+		FieldType:  sField.Type,
+		FieldName:  sField.Name,
+		FieldIndex: append(s.Scope.FieldIndex, index),
+	}
+
+	if !sField.IsExported() {
+		err := ierror.NewD("not exported")
+		return field, InvalidFieldError{Trail: s.Scope.Trail, Field: sField, err: err}
+	}
+
+	return field, nil
+}

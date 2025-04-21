@@ -16,9 +16,11 @@ import (
 // =============================================================================
 
 type Argument struct {
-	FieldType  reflect.Type
-	FieldName  string
-	FieldIndex []int
+	// FieldType  reflect.Type
+	// FieldName  string
+	// FieldIndex []int
+
+	Field
 
 	Position ArgumentPosition
 }
@@ -26,18 +28,25 @@ type Argument struct {
 func (a Argument) String() string { return fmt.Sprintf("%s (%s)", a.FieldName, a.Position) }
 
 func loadArgument(s *state, sField reflect.StructField, tag []byte, index int) error {
-	s.Config.Log.Debug("loading argument field", "type", sField.Type, "name", sField.Name)
+	// s.Config.Log.Debug("loading argument field", "type", sField.Type, "name", sField.Name)
 
-	if !sField.IsExported() {
-		err := ierror.NewD("not exported")
-		return InvalidFieldError{Trail: s.Scope.Trail, Field: sField, err: err}
+	// if !sField.IsExported() {
+	// 	err := ierror.NewD("not exported")
+	// 	return InvalidFieldError{Trail: s.Scope.Trail, Field: sField, err: err}
+	// }
+
+	// argument := Argument{
+	// 	FieldType:  sField.Type,
+	// 	FieldName:  sField.Name,
+	// 	FieldIndex: append(s.Scope.FieldIndex, index),
+	// }
+
+	field, err := newField(s, sField, index)
+	if err != nil {
+		return err
 	}
 
-	argument := Argument{
-		FieldType:  sField.Type,
-		FieldName:  sField.Name,
-		FieldIndex: append(s.Scope.FieldIndex, index),
-	}
+	argument := Argument{Field: field}
 
 	if err := argument.Position.UnmarshalText(tag); err != nil {
 		return InvalidFieldError{Trail: s.Scope.Trail, Field: sField, err: err}

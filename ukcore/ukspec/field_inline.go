@@ -15,9 +15,11 @@ import (
 // =============================================================================
 
 type Inline struct {
-	FieldType  reflect.Type
-	FieldName  string
-	FieldIndex []int
+	// FieldType  reflect.Type
+	// FieldName  string
+	// FieldIndex []int
+
+	Field
 
 	Prefix InlinePrefix
 }
@@ -30,28 +32,21 @@ func (i Inline) String() string {
 }
 
 func loadInline(s *state, sField reflect.StructField, tag []byte, index int) error {
-	s.Config.Log.Debug("loading inline field", "type", sField.Type, "name", sField.Name)
+	field, err := newField(s, sField, index)
+	if err != nil {
+		return err
+	}
 
-	if !sField.IsExported() {
-		err := ierror.NewD("not exported")
+	for field.FieldType.Kind() == reflect.Pointer {
+		field.FieldType = field.FieldType.Elem()
+	}
+
+	if field.FieldType.Kind() != reflect.Struct {
+		err = ierror.NewD("inline not a struct or struct pointer")
 		return InvalidFieldError{Trail: s.Scope.Trail, Field: sField, err: err}
 	}
 
-	inlineType := sField.Type
-	for inlineType.Kind() == reflect.Pointer {
-		inlineType = inlineType.Elem()
-	}
-
-	if inlineType.Kind() != reflect.Struct {
-		err := ierror.NewD("inline not a struct or struct pointer")
-		return InvalidFieldError{Trail: s.Scope.Trail, Field: sField, err: err}
-	}
-
-	inline := Inline{
-		FieldType:  inlineType,
-		FieldName:  sField.Name,
-		FieldIndex: append(s.Scope.FieldIndex, index),
-	}
+	inline := Inline{Field: field}
 
 	if err := inline.Prefix.UnmarshalText(tag); err != nil {
 		return InvalidFieldError{Trail: s.Scope.Trail, Field: sField, err: err}
@@ -61,6 +56,39 @@ func loadInline(s *state, sField reflect.StructField, tag []byte, index int) err
 
 	return s.InsertInline(inline)
 }
+
+// func loadInline(s *state, sField reflect.StructField, tag []byte, index int) error {
+// 	s.Config.Log.Debug("loading inline field", "type", sField.Type, "name", sField.Name)
+
+// 	if !sField.IsExported() {
+// 		err := ierror.NewD("not exported")
+// 		return InvalidFieldError{Trail: s.Scope.Trail, Field: sField, err: err}
+// 	}
+
+// 	inlineType := sField.Type
+// 	for inlineType.Kind() == reflect.Pointer {
+// 		inlineType = inlineType.Elem()
+// 	}
+
+// 	if inlineType.Kind() != reflect.Struct {
+// 		err := ierror.NewD("inline not a struct or struct pointer")
+// 		return InvalidFieldError{Trail: s.Scope.Trail, Field: sField, err: err}
+// 	}
+
+// 	inline := Inline{
+// 		FieldType:  inlineType,
+// 		FieldName:  sField.Name,
+// 		FieldIndex: append(s.Scope.FieldIndex, index),
+// 	}
+
+// 	if err := inline.Prefix.UnmarshalText(tag); err != nil {
+// 		return InvalidFieldError{Trail: s.Scope.Trail, Field: sField, err: err}
+// 	}
+
+// 	inline.Prefix = s.Scope.Prefix + inline.Prefix
+
+// 	return s.InsertInline(inline)
+// }
 
 // =============================================================================
 // InlinePrefix
