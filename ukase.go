@@ -2,126 +2,111 @@ package ukase
 
 import (
 	"context"
-	"errors"
-	"log/slog"
-	"os"
+	"fmt"
 
-	"github.com/oligarch316/ukase/internal/ilog"
 	"github.com/oligarch316/ukase/ukcli"
-	"github.com/oligarch316/ukase/ukmeta/ukgen"
-	"github.com/oligarch316/ukase/ukmeta/ukhelp"
+	"github.com/oligarch316/ukase/ukcli/ukdecode"
+	"github.com/oligarch316/ukase/ukcli/ukdirect"
+	"github.com/oligarch316/ukase/ukcli/ukparse"
+	"github.com/oligarch316/ukase/ukcore/uktree"
 )
 
 // =============================================================================
-// Config
+// App
 // =============================================================================
 
-var cfgDefault = Config{
-	Log:            ilog.Discard,
-	HelpCommand:    "help",
-	InputProgram:   os.Args[0],
-	InputArguments: os.Args[1:],
-	CLI:            nil,
-	Help:           nil,
-	Gen:            nil,
-}
-
-type Option interface{ UkaseApplyApp(*Config) }
-
-type Config struct {
-	// TODO: Document
-	Log *slog.Logger
-
-	// TODO: Document
-	HelpCommand string
-
-	// TODO: Document
-	InputProgram string
-
-	// TODO: Document
-	InputArguments []string
-
-	// TODO: Document
-	CLI []ukcli.Option
-
-	// TODO: Document
-	Help []ukhelp.Option
-
-	// TODO: Document
-	Gen []ukgen.Option
-}
-
-func newConfig(opts []Option) appConfig {
-	config := cfgDefault
-	for _, opt := range opts {
-		opt.UkaseApplyApp(&config)
-	}
-	return appConfig{Config: config}
-}
-
-// =============================================================================
-// Application
-// =============================================================================
-
-type Application struct {
-	config  appConfig
+type App struct {
+	decoder ukcli.Decoder
+	parser  ukcli.Parser
 	runtime *ukcli.Runtime
 }
 
-func NewApplication(opts ...Option) *Application {
+func New(opts ...Option) *App {
 	config := newConfig(opts)
-	runtime := ukcli.NewRuntime(config)
 
-	return &Application{config: config, runtime: runtime}
-}
-
-func (a *Application) Add(directives ...ukcli.Directive) {
-	a.runtime.Add(directives...)
-}
-
-func (a *Application) Run(ctx context.Context) error {
-	values := []string{a.config.InputProgram}
-	values = append(values, a.config.InputArguments...)
-
-	return a.runtime.Execute(ctx, values)
-}
-
-// =============================================================================
-// Directive› Command
-// =============================================================================
-
-var NoHandler ukcli.Handler[struct{}] = nil
-var NoInfo any = nil
-
-type Command[Params any] struct {
-	Handler ukcli.Handler[Params]
-	Info    ukcli.Info
-}
-
-func NewCommand[Params any](handler func(context.Context, Params) error, info any) Command[Params] {
-	return Command[Params]{
-		Handler: ukcli.NewHandler(handler),
-		Info:    ukcli.NewInfo(info),
+	return &App{
+		decoder: ukdecode.New(config.Decode...),
+		parser:  ukparse.New(config.Parse...),
+		runtime: ukcli.New(config.CLI...),
 	}
 }
 
-func NewRoot[Params any](handler func(context.Context, Params) error, info any) ukcli.Directive {
-	command := NewCommand(handler, info)
-	return command.Bind()
+func (a *App) Run(ctx context.Context, args []string) error {
+	cliCtx, err := a.runtime.Build(ctx)
+	if err != nil {
+		return err
+	}
+
+	input, err := a.parser.Parse(cliCtx, args)
+	if err != nil {
+		return err
+	}
+
+	entry, err := uktree.Read(cliCtx, input.Target...)
+	if err != nil {
+		return err
+	}
+
+	if entry.Exec == nil {
+		return fmt.Errorf("[TODO App.execute] nil entry.Exec at target '%v'", input.Target)
+	}
+
+	return entry.Exec.Execute(cliCtx, input)
 }
 
-func (c Command[Params]) Bind(target ...string) ukcli.Directive {
-	return ukcli.NewDirective(func(s ukcli.State) error {
-		errHandler := c.Handler.Bind(target...).UkaseRegister(s)
-		errInfo := c.Info.Bind(target...).UkaseRegister(s)
-		return errors.Join(errHandler, errInfo)
-	})
+// -----------------------------------------------------------------------------
+// Config
+// -----------------------------------------------------------------------------
+
+type Option interface{ UkaseApply(*Config) }
+
+type Config struct {
+	CLI    []ukcli.Option
+	Decode []ukdecode.Option
+	Parse  []ukparse.Option
 }
 
-// =============================================================================
-// Directive› Rule
-// =============================================================================
+func newConfig(opts []Option) Config {
+	config := cfgDefault
+	for _, opt := range opts {
+		opt.UkaseApply(&config)
+	}
+	return config
+}
 
-func NewRule[Params any](rule func(*Params)) ukcli.Rule[Params] {
-	return ukcli.NewRule(rule)
+var cfgDefault = Config{}
+
+// -----------------------------------------------------------------------------
+// Directives
+// -----------------------------------------------------------------------------
+
+func AddDirectives(app *App, directives ...ukcli.Directive) {
+	app.runtime.Add(directives...)
+}
+
+func AddOperation(app *App, operation ukdirect.Operation, target ...string) {
+	directive := ukdirect.Local(operation, target...)
+	app.runtime.Add(directive)
+}
+
+func AddInfo(app *App, info string, target ...string) {
+	operation := ukdirect.Info(info)
+	directive := ukdirect.Local(operation, target...)
+	app.runtime.Add(directive)
+}
+
+func AddHandler[Params any](app *App, handler func(context.Context, Params) error, target ...string) {
+	operation := ukdirect.Handler(app.decoder, handler)
+	directive := ukdirect.Local(operation, target...)
+	app.runtime.Add(directive)
+}
+
+func AddCommand[Params any](app *App, info string, handler func(context.Context, Params) error, target ...string) {
+	operation := ukdirect.Command[Params]{
+		Info: ukdirect.Info(info),
+		Exec: ukdirect.Handler(app.decoder, handler),
+	}
+
+	directive := ukdirect.Local(operation, target...)
+	app.runtime.Add(directive)
 }
