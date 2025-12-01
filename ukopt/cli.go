@@ -5,24 +5,23 @@ import (
 	"github.com/oligarch316/ukase/ukcli"
 )
 
-// =============================================================================
-// General
-// =============================================================================
-
 var (
 	_ ukcli.Option = CLI(nil)
 	_ ukase.Option = CLI(nil)
 )
 
+// =============================================================================
+// General
+// =============================================================================
+
 type CLI func(*ukcli.Config)
 
 func (o CLI) UkaseApplyCLI(c *ukcli.Config) { o(c) }
-func (o CLI) UkaseApplyApp(c *ukase.Config) { c.CLI = append(c.CLI, o) }
+func (o CLI) UkaseApply(c *ukase.Config)    { c.CLI = append(c.CLI, o) }
 
 // =============================================================================
 // Specific
 // =============================================================================
 
-func CLIMiddleware(middleware func(ukcli.State) ukcli.State) CLI {
-	return func(c *ukcli.Config) { c.Middleware = append(c.Middleware, middleware) }
-}
+func CLIUnknownError(err error) CLI  { return func(c *ukcli.Config) { c.UnknownError = err } }
+func CLIUnknownInfo(info string) CLI { return func(c *ukcli.Config) { c.UnknownInfo = info } }

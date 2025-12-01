@@ -2,125 +2,52 @@ package ukspec
 
 import (
 	"reflect"
-	"slices"
-
-	"github.com/oligarch316/ukase/internal/ierror"
-	"github.com/oligarch316/ukase/internal/ispec"
+	"strconv"
+	"strings"
 )
 
 // =============================================================================
-// Parameters
+// Spec
 // =============================================================================
 
-type Parameters struct {
-	Type reflect.Type
-
-	Arguments []Argument
-	Flags     []Flag
-	Inlines   []Inline
-
-	flagNames map[string]Flag
-}
-
-func ParametersFor[T any](opts ...Option) (Parameters, error) {
+func For[T any]() (Params, error) {
 	t := reflect.TypeFor[T]()
-	return NewParameters(t, opts...)
+	return load(t)
 }
 
-func ParametersOf(v any, opts ...Option) (Parameters, error) {
-	t := reflect.TypeOf(v)
-	return NewParameters(t, opts...)
+func Of(i any) (Params, error) {
+	t := reflect.TypeOf(i)
+	return load(t)
 }
 
-func NewParameters(t reflect.Type, opts ...Option) (Parameters, error) {
-	config := newConfig(opts)
-	config.Log.Info("loading parameters", "type", t)
+func New(t reflect.Type) (Params, error) {
+	return load(t)
+}
 
-	paramsType := t
-	for paramsType.Kind() == reflect.Pointer {
-		paramsType = paramsType.Elem()
+// -----------------------------------------------------------------------------
+// Index Conversion
+// -----------------------------------------------------------------------------
+
+const indexSep = "."
+
+func FormatIndex(index []int) string {
+	segs := make([]string, len(index))
+	for i, item := range index {
+		segs[i] = strconv.Itoa(item)
 	}
+	return strings.Join(segs, indexSep)
+}
 
-	if paramsType.Kind() != reflect.Struct {
-		err := ierror.NewD("not a struct or struct pointer")
-		return Parameters{}, InvalidParametersError{Type: t, err: err}
-	}
-
-	s := newState(config, paramsType)
-	for s.Shift() {
-		if err := loadStruct(s); err != nil {
-			return Parameters{}, err
+func ParseIndex(s string) ([]int, error) {
+	segs := strings.Split(s, indexSep)
+	index := make([]int, len(segs))
+	for i, seg := range segs {
+		item, err := strconv.Atoi(seg)
+		if err != nil {
+			return nil, err
 		}
+
+		index[i] = item
 	}
-
-	params := Parameters{
-		Type:      paramsType,
-		Arguments: s.argumentList,
-		Flags:     s.flagList,
-		Inlines:   s.inlineList,
-		flagNames: s.flagMap,
-	}
-
-	return params, nil
-}
-
-// =============================================================================
-// Parameters› Lookup
-// =============================================================================
-
-func (p Parameters) LookupArgument(position int) (Argument, bool) {
-	match := func(a Argument) bool {
-		lOk := a.Position.Low == nil || position >= int(*a.Position.Low)
-		hOk := a.Position.High == nil || position < int(*a.Position.High)
-		return lOk && hOk
-	}
-
-	if idx := slices.IndexFunc(p.Arguments, match); idx != -1 {
-		return p.Arguments[idx], true
-	}
-
-	return Argument{}, false
-}
-
-func (p Parameters) LookupFlag(name string) (Flag, bool) {
-	flag, ok := p.flagNames[name]
-	return flag, ok
-}
-
-// =============================================================================
-// Parameters› Load
-// =============================================================================
-
-func loadStruct(s *state) error {
-	s.Config.Log.Debug("loading struct", "type", s.Scope.FieldType)
-
-	for i := 0; i < s.Scope.FieldType.NumField(); i++ {
-		if err := loadField(s, i); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func loadField(s *state, index int) error {
-	sField := s.Scope.FieldType.Field(index)
-
-	// Argument
-	if tag, ok := sField.Tag.Lookup(ispec.TagKeyArguments); ok {
-		return loadArgument(s, sField, []byte(tag), index)
-	}
-
-	// Flag
-	if tag, ok := sField.Tag.Lookup(ispec.TagKeyFlag); ok {
-		return loadFlag(s, sField, []byte(tag), index)
-	}
-
-	// Inline
-	if tag, ok := sField.Tag.Lookup(ispec.TagKeyInline); ok {
-		return loadInline(s, sField, []byte(tag), index)
-	}
-
-	// Untagged ⇒ ignore
-	return nil
+	return index, nil
 }

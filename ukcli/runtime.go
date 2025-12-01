@@ -2,147 +2,104 @@ package ukcli
 
 import (
 	"context"
+	"errors"
 	"reflect"
+	"strings"
 
 	"github.com/oligarch316/ukase/ukcore"
-	"github.com/oligarch316/ukase/ukcore/ukdec"
-	"github.com/oligarch316/ukase/ukcore/ukexec"
-	"github.com/oligarch316/ukase/ukcore/ukinit"
-	"github.com/oligarch316/ukase/ukcore/ukspec"
+	"github.com/oligarch316/ukase/ukcore/ukinput"
+	"github.com/oligarch316/ukase/ukcore/uktodo"
+	"github.com/oligarch316/ukase/ukcore/ukvalue"
 )
 
 // =============================================================================
 // Runtime
 // =============================================================================
 
-type Runtime struct {
-	config     Config
-	directives []Directive
-}
+type Runtime struct{ directives []Directive }
 
-func NewRuntime(opts ...Option) *Runtime {
+func New(opts ...Option) *Runtime {
 	config := newConfig(opts)
-	return &Runtime{config: config}
+	directives := []Directive{config}
+	return &Runtime{directives: directives}
 }
 
 func (r *Runtime) Add(directives ...Directive) {
 	r.directives = append(r.directives, directives...)
 }
 
-func (r *Runtime) Execute(ctx context.Context, values []string) error {
-	state := newState(r.config)
-
-	if err := r.prepare(state); err != nil {
-		return err
-	}
-
-	return state.execMux.Execute(ctx, values)
+func (r *Runtime) Build(ctx context.Context) (Context, error) {
+	state, err := NewState(r.directives...)
+	return NewContext(ctx, state), err
 }
 
-func (r *Runtime) prepare(state State) error {
-	for _, middleware := range r.config.Middleware {
-		state = middleware(state)
-	}
+// -----------------------------------------------------------------------------
+// Config
+// -----------------------------------------------------------------------------
 
-	for _, dir := range r.directives {
-		if err := dir.UkaseRegister(state); err != nil {
-			return err
-		}
-	}
+type Option interface{ UkaseApplyCLI(*Config) }
 
+type Config struct {
+	BaseValues   Values
+	UnknownError error
+	UnknownInfo  string
+}
+
+func (c Config) UkaseDirective(state *State) error {
+	state.Values = c.BaseValues
+	state.Global.Info = c.UnknownInfo
+	state.Global.Exec.exec = execError{c.UnknownError}
+	state.Global.Exec.execT = reflect.TypeFor[struct{}]()
 	return nil
 }
 
-// =============================================================================
-// State
-// =============================================================================
-
-var _ State = (*state)(nil)
-
-type State interface {
-	// Execution time utilities
-	loadMeta(target []string) (ukexec.Meta, error)
-	loadSpec(t reflect.Type) (ukspec.Parameters, error)
-	runDecode(ukcore.Input, any) error
-	runInit(any) error
-
-	// Registration time utilities
-	RegisterExec(exec ukcore.Exec, spec ukspec.Parameters, target ...string) error
-	RegisterInfo(info any, target ...string) error
-	RegisterRule(rule ukinit.Rule)
-}
-
-type state struct {
-	config  Config
-	execMux *ukexec.Mux
-	ruleSet *ukinit.RuleSet
-}
-
-func newState(config Config) *state {
-	return &state{
-		config:  config,
-		execMux: ukexec.New(config.Exec...),
-		ruleSet: ukinit.NewRuleSet(config.Init...),
+func newConfig(opts []Option) Config {
+	config := cfgDefault
+	for _, opt := range opts {
+		opt.UkaseApplyCLI(&config)
 	}
+	return config
 }
 
-func (s *state) loadMeta(target []string) (ukexec.Meta, error) {
-	return s.execMux.Meta(target...)
+var cfgDefault = Config{
+	BaseValues:   cfgBaseValues,
+	UnknownError: errors.New("unknown target"),
+	UnknownInfo:  "",
 }
 
-func (s *state) loadSpec(t reflect.Type) (ukspec.Parameters, error) {
-	return ukspec.NewParameters(t, s.config.Spec...)
+var cfgBaseValues = Values{
+	EnvNames:  ukvalue.DeriveTag("ukenv", cfgTagFields),
+	FlagNames: ukvalue.DeriveTag("ukflag", cfgTagFields),
+	MetaNames: ukvalue.DeriveTag("ukmeta", cfgTagFields),
+	ArgRange:  ukvalue.DeriveTag("ukarg", uktodo.ParseArgRange),
+	FlagKind:  ukvalue.DeriveField(cfgFlagKind),
+	Initial:   ukvalue.DeriveTag("ukinit", cfgTagFields),
+	Info:      ukvalue.DeriveTag("ukinfo", cfgTagString),
 }
 
-func (s *state) runDecode(i ukcore.Input, v any) error {
-	decoder := ukdec.NewDecoder(i, s.config.Decode...)
-	return decoder.Decode(v)
+func cfgTagString(v string) (string, error) {
+	return strings.TrimSpace(v), nil
 }
 
-func (s *state) runInit(v any) error {
-	spec, err := ukspec.ParametersOf(v, s.config.Spec...)
-	if err != nil {
-		return err
+func cfgTagFields(v string) ([]string, error) {
+	v = strings.TrimSpace(v)
+	return strings.Fields(v), nil
+}
+
+func cfgFlagKind(field ukcore.SpecField) (ukinput.FlagKind, error) {
+	fieldType := field.Source.Type
+
+	for fieldType.Kind() == reflect.Pointer {
+		fieldType = fieldType.Elem()
 	}
 
-	return s.ruleSet.Process(spec, v)
+	if fieldType.Kind() == reflect.Bool {
+		return ukinput.KindBoolean, nil
+	}
+
+	return ukinput.KindBasic, nil
 }
 
-func (s *state) RegisterExec(exec ukcore.Exec, spec ukspec.Parameters, target ...string) error {
-	return s.execMux.RegisterExec(exec, spec, target...)
-}
+type execError struct{ error }
 
-func (s *state) RegisterInfo(info any, target ...string) error {
-	return s.execMux.RegisterInfo(info, target...)
-}
-
-func (s *state) RegisterRule(rule ukinit.Rule) {
-	rule.Register(s.ruleSet)
-}
-
-// =============================================================================
-// Input
-// =============================================================================
-
-var _ Input = input{}
-
-type Input interface {
-	Core() ukcore.Input
-	Decode(any) error
-	Initialize(any) error
-	Lookup(target ...string) (ukexec.Meta, error)
-}
-
-type input struct {
-	core  ukcore.Input
-	state State
-}
-
-func newInput(core ukcore.Input, state State) input {
-	return input{core: core, state: state}
-}
-
-func (i input) Core() ukcore.Input                      { return i.core }
-func (i input) Decode(v any) error                      { return i.state.runDecode(i.core, v) }
-func (i input) Initialize(v any) error                  { return i.state.runInit(v) }
-func (i input) Lookup(t ...string) (ukexec.Meta, error) { return i.state.loadMeta(t) }
+func (ee execError) Execute(Context, ukcore.Input) error { return ee.error }
