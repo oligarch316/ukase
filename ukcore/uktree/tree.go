@@ -14,6 +14,24 @@ func Read[T any](tree ukcore.Tree[T], target ...string) (T, error) {
 	return *new(T), errors.New("[TODO Read] target not found")
 }
 
+func ReadChildren[T any](tree ukcore.Tree[T], target ...string) (map[string]T, error) {
+	node, exists := tree.Lookup(target...)
+	if !exists {
+		return nil, errors.New("[TODO ReadChildren] target not found")
+	}
+
+	children := make(map[string]T)
+	errs := make([]error, 0)
+
+	for name, child := range node.List() {
+		entry, err := child.Load()
+		children[name] = entry
+		errs = append(errs, err)
+	}
+
+	return children, errors.Join(errs...)
+}
+
 func Update[T any](node *Node[T], update func(*T) error, target ...string) error {
 	node = ensure(node, target)
 	return update(&node.Entry)

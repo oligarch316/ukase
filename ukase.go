@@ -16,8 +16,8 @@ import (
 // =============================================================================
 
 type App struct {
-	decoder ukcli.Decoder
-	parser  ukcli.Parser
+	Decoder ukcli.Decoder
+	Parser  ukcli.Parser
 	runtime *ukcli.Runtime
 }
 
@@ -25,8 +25,8 @@ func New(opts ...Option) *App {
 	config := newConfig(opts)
 
 	return &App{
-		decoder: ukdecode.New(config.Decode...),
-		parser:  ukparse.New(config.Parse...),
+		Decoder: ukdecode.New(config.Decode...),
+		Parser:  ukparse.New(config.Parse...),
 		runtime: ukcli.New(config.CLI...),
 	}
 }
@@ -37,7 +37,7 @@ func (a *App) Run(ctx context.Context, args []string) error {
 		return err
 	}
 
-	input, err := a.parser.Parse(cliCtx, args)
+	input, err := a.Parser.Parse(cliCtx, args)
 	if err != nil {
 		return err
 	}
@@ -80,11 +80,21 @@ var cfgDefault = Config{}
 // Directives
 // -----------------------------------------------------------------------------
 
-func AddDirectives(app *App, directives ...ukcli.Directive) {
+func Add(app *App, directives ...ukcli.Directive) {
 	app.runtime.Add(directives...)
 }
 
-func AddOperation(app *App, operation ukdirect.Operation, target ...string) {
+func AddAuto(app *App, operation ukdirect.Operation, name string) {
+	directive := ukdirect.Auto(operation, name)
+	app.runtime.Add(directive)
+}
+
+func AddGlobal(app *App, operation ukdirect.Operation) {
+	directive := ukdirect.Global(operation)
+	app.runtime.Add(directive)
+}
+
+func AddLocal(app *App, operation ukdirect.Operation, target ...string) {
 	directive := ukdirect.Local(operation, target...)
 	app.runtime.Add(directive)
 }
@@ -96,7 +106,7 @@ func AddInfo(app *App, info string, target ...string) {
 }
 
 func AddHandler[Params any](app *App, handler func(context.Context, Params) error, target ...string) {
-	operation := ukdirect.Handler(app.decoder, handler)
+	operation := ukdirect.Handler(app.Decoder, handler)
 	directive := ukdirect.Local(operation, target...)
 	app.runtime.Add(directive)
 }
@@ -104,7 +114,7 @@ func AddHandler[Params any](app *App, handler func(context.Context, Params) erro
 func AddCommand[Params any](app *App, info string, handler func(context.Context, Params) error, target ...string) {
 	operation := ukdirect.Command[Params]{
 		Info: ukdirect.Info(info),
-		Exec: ukdirect.Handler(app.decoder, handler),
+		Exec: ukdirect.Handler(app.Decoder, handler),
 	}
 
 	directive := ukdirect.Local(operation, target...)

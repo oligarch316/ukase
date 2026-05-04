@@ -1,0 +1,60 @@
+{{- /* DEFINE *************************************************************/ -}}
+
+{{- define "sectionInfo" -}}
+
+{{ .Command.Info }}
+
+{{- end -}}
+
+{{- define "sectionUsage" -}}
+
+Usage:
+{{- if hasExec . }}
+  {{ .Command.Usage }}
+  {{- if hasFlags .     }} [flag...]     {{- end -}}
+  {{- if hasArguments . }} [argument...] {{- end -}}
+{{- end -}}
+
+{{- if hasSubcommands . }}
+  {{ .Command.Usage }} [subcommand]
+{{- end -}}
+
+{{- end -}}
+
+{{- define "sectionSubcommands" -}}
+{{- $padding := maxLabel .Subcommands -}}
+
+Subcommands:
+{{- range .Subcommands }}
+  {{ printf "%-*s  %s" $padding .Label .Info }}
+{{- end -}}
+
+{{- end -}}
+
+{{- define "sectionFlags" -}}
+{{- $padding := maxLabel .Flags -}}
+
+Flags:
+{{- range .Flags }}
+  {{ printf "%-*s  %s" $padding .Label .Info }}
+{{- end -}}
+
+{{- end -}}
+
+{{- define "sectionArguments" -}}
+{{- $padding := maxLabel .Arguments -}}
+
+Arguments:
+{{- range .Arguments }}
+  {{ printf "%-*s  %s" $padding .Label .Info }}
+{{- end -}}
+
+{{- end -}}
+
+{{- /* DISPLAY ************************************************************/ -}}
+
+{{- if hasInfo .        -}} {{- template "sectionInfo" .        -}} {{- "\n\n" -}} {{- end -}}
+{{- if hasUsage .       -}} {{- template "sectionUsage" .       -}} {{- "\n\n" -}} {{- end -}}
+{{- if hasSubcommands . -}} {{- template "sectionSubcommands" . -}} {{- "\n\n" -}} {{- end -}}
+{{- if hasFlags .       -}} {{- template "sectionFlags" .       -}} {{- "\n\n" -}} {{- end -}}
+{{- if hasArguments .   -}} {{- template "sectionArguments" .   -}} {{- "\n\n" -}} {{- end -}}

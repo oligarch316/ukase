@@ -22,15 +22,15 @@ func FormatArgRange(ar ArgRange) string {
 
 	switch noLow, noHigh := ar.Low < 0, ar.High < 0; {
 	case noLow && noHigh:
-		return "[…]"
+		return "[...]"
 	case noLow:
-		return fmt.Sprintf("[…%d]", ar.High)
+		return fmt.Sprintf("[...%d]", ar.High)
 	case noHigh:
-		return fmt.Sprintf("[%d…]", ar.Low)
+		return fmt.Sprintf("[%d...]", ar.Low)
 	case ar.Low == ar.High:
 		return fmt.Sprintf("[%d]", ar.Low)
 	default:
-		return fmt.Sprintf("[%d…%d]", ar.Low, ar.High)
+		return fmt.Sprintf("[%d...%d]", ar.Low, ar.High)
 	}
 }
 
