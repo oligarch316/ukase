@@ -70,7 +70,7 @@ type Values struct {
 	MetaNames ukcore.SpecValue[[]string]
 	ArgRange  ukcore.SpecValue[uktodo.ArgRange]
 	FlagKind  ukcore.SpecValue[ukinput.FlagKind]
-	Initial   ukcore.SpecValue[[]string]
+	Initial   ukcore.SpecValue[any]
 	Info      ukcore.SpecValue[string]
 }
 

@@ -39,15 +39,15 @@ func NewSink(v any) (Sink, error) {
 }
 
 // -----------------------------------------------------------------------------
-// Load
+// Read
 // -----------------------------------------------------------------------------
 
-func (s Sink) LoadField(index []int) (val reflect.Value, err error) {
-	defer s.recoverField(&err)
-	return s.loadField(s.Value, index), err
+func (s Sink) ReadField(index []int) (val reflect.Value, err error) {
+	defer s.readRecover(&err)
+	return s.readField(s.Value, index), err
 }
 
-func (Sink) loadField(val reflect.Value, index []int) reflect.Value {
+func (Sink) readField(val reflect.Value, index []int) reflect.Value {
 	for _, i := range index {
 		if val.Kind() == reflect.Pointer {
 			if val.IsZero() {
@@ -64,10 +64,59 @@ func (Sink) loadField(val reflect.Value, index []int) reflect.Value {
 	return val
 }
 
-func (Sink) recoverField(err *error) {
+func (Sink) readRecover(err *error) {
 	if recover() != nil {
 		*err = errors.New("[TODO Sink.recoverField] caught us a panic")
 	}
+}
+
+// -----------------------------------------------------------------------------
+// Write
+// -----------------------------------------------------------------------------
+
+// TODO:
+// This "Write" behavior is pretty specific to the `SourceInit` decoder.
+// As it stands, this logic should probably be moved under `SourceInit.Decode(...)`.
+
+func (s Sink) WriteField(index []int, v any) error {
+	dst, err := s.ReadField(index)
+	if err != nil {
+		return err
+	}
+
+	src := reflect.ValueOf(v)
+	return writeField(dst, src)
+}
+
+func writeField(dst, src reflect.Value) error {
+	if src.Type().AssignableTo(dst.Type()) {
+		dst.Set(src)
+		return nil
+	}
+
+	switch src.Kind() {
+	case reflect.String:
+		return writeFieldString(dst, src)
+	case reflect.Array, reflect.Slice:
+		return writeFieldSequence(dst, src)
+	}
+
+	return fmt.Errorf("[TODO writeField] incompatible destination (%s) and source (%s) values", dst.Kind(), src.Kind())
+}
+
+func writeFieldString(dst, src reflect.Value) error {
+	srcString := src.String()
+	return decodeField(dst, srcString)
+}
+
+func writeFieldSequence(dst, src reflect.Value) error {
+	for _, elem := range src.Seq2() {
+		if err := writeField(dst, elem); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // -----------------------------------------------------------------------------
@@ -75,7 +124,7 @@ func (Sink) recoverField(err *error) {
 // -----------------------------------------------------------------------------
 
 func (s Sink) DecodeField(index []int, srcs ...string) error {
-	dst, err := s.LoadField(index)
+	dst, err := s.ReadField(index)
 	if err != nil {
 		return err
 	}

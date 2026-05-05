@@ -73,7 +73,7 @@ var cfgBaseValues = Values{
 	MetaNames: ukvalue.DeriveTag("ukmeta", cfgTagFields),
 	ArgRange:  ukvalue.DeriveTag("ukarg", uktodo.ParseArgRange),
 	FlagKind:  ukvalue.DeriveField(cfgFlagKind),
-	Initial:   ukvalue.DeriveTag("ukinit", cfgTagFields),
+	Initial:   ukvalue.DeriveTag("ukinit", cfgTagInitial),
 	Info:      ukvalue.DeriveTag("ukinfo", cfgTagString),
 }
 
@@ -84,6 +84,10 @@ func cfgTagString(v string) (string, error) {
 func cfgTagFields(v string) ([]string, error) {
 	v = strings.TrimSpace(v)
 	return strings.Fields(v), nil
+}
+
+func cfgTagInitial(v string) (any, error) {
+	return cfgTagFields(v)
 }
 
 func cfgFlagKind(field ukcore.SpecField) (ukinput.FlagKind, error) {
