@@ -62,7 +62,7 @@ type StateOverrides struct {
 	MetaNames StateOverride[[]string]
 	ArgRange  StateOverride[uktodo.ArgRange]
 	FlagKind  StateOverride[ukinput.FlagKind]
-	Initial   StateOverride[[]string]
+	Initial   StateOverride[any]
 	Info      StateOverride[string]
 }
 

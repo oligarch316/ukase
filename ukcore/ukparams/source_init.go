@@ -14,12 +14,12 @@ var _ Source = SourceInit{}
 // =============================================================================
 
 type SourceInit struct {
-	Initial ukcore.SpecValue[[]string]
+	Initial ukcore.SpecValue[any]
 }
 
 func (si SourceInit) Decode(sink Sink, _ ukcore.Input) error {
 	for field := range sink.Spec.Fields() {
-		if err := si.decodeField(sink, field.Index); err != nil {
+		if err := si.writeField(sink, field.Index); err != nil {
 			return err
 		}
 	}
@@ -27,13 +27,13 @@ func (si SourceInit) Decode(sink Sink, _ ukcore.Input) error {
 	return nil
 }
 
-func (si SourceInit) decodeField(sink Sink, index []int) error {
-	switch srcs, err := si.Initial.Load(sink.Spec, index); {
+func (si SourceInit) writeField(sink Sink, index []int) error {
+	switch src, err := si.Initial.Load(sink.Spec, index); {
 	case errors.Is(err, ukvalue.ErrNotSpecified):
 		return nil
 	case err != nil:
 		return err
 	default:
-		return sink.DecodeField(index, srcs...)
+		return sink.WriteField(index, src)
 	}
 }
