@@ -7,6 +7,8 @@ import (
 
 	"github.com/oligarch316/ukase/ukcli"
 	"github.com/oligarch316/ukase/ukcore"
+	"github.com/oligarch316/ukase/ukcore/ukspec"
+	"github.com/oligarch316/ukase/ukcore/ukvalue"
 )
 
 // =============================================================================
@@ -77,4 +79,41 @@ func Handler[Params any](dec ukcli.Decoder, f func(context.Context, Params) erro
 
 		return f(ctx, params)
 	}
+}
+
+// -----------------------------------------------------------------------------
+// Default
+// -----------------------------------------------------------------------------
+
+type Default struct{ Params any }
+
+func (d Default) UkaseOperation(se *ukcli.StateEntry) error {
+	spec, err := ukspec.Of(d.Params)
+	if err != nil {
+		return err
+	}
+
+	paramsType := spec.Source()
+	paramsVal := reflect.ValueOf(d.Params)
+
+	keyPkg, keyName := paramsType.PkgPath(), paramsType.Name()
+
+	for field := range spec.Fields() {
+		fieldVal, err := paramsVal.FieldByIndexErr(field.Index)
+		if err != nil {
+			return err
+		}
+
+		if fieldVal.IsZero() {
+			continue
+		}
+
+		keyIndex := ukspec.FormatIndex(field.Index)
+		key := ukvalue.MapKey{Package: keyPkg, Name: keyName, Index: keyIndex}
+		val := fieldVal.Interface()
+
+		se.Overrides.Initial.Update(key, val)
+	}
+
+	return nil
 }
